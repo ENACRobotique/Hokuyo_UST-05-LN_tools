@@ -89,7 +89,7 @@ class DrawingWidget(QtWidgets.QWidget):
         return polygon
 
     def wheelEvent (self,event) :
-        rescale = event.angleDelta().y()/1200
+        rescale = self.scale.x()*event.angleDelta().y()/1200
         self.scale += QtCore.QPointF(rescale,rescale) 
         self.update()
 
