@@ -13,7 +13,7 @@ class UstReader(QtCore.QThread):
         self.data = data
         self.dataP = dataP
         self.mutex = mutex
-        self.ust = ust05ln.UST(port = "COM3")
+        self.ust = ust05ln.UST(port = "/dev/ttyACM0")
         self.is_running = False
         self.start_now = False
         self.stop_now = False

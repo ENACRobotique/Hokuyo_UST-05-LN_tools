@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import cab as C
 from PyQt5 import QtCore, QtWidgets, QtGui
 
