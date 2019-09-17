@@ -37,14 +37,12 @@ class UstReader(QtCore.QThread):
                 if self.is_running :
                     self.mutex.lock()
                     data = self.ust.get_measures()
-                    self.data[:] = data[1]
-                    self.dataP[:] = data[2]
+                    if data is not None:
+                        self.data[:] = data[1]
+                        self.dataP[:] = data[2]
                     self.mutex.unlock()
-                    self.data_change.emit()
-                    #if len(data[1]) == 541 :
-                        #print("ok at {:.06f} s".format(data[0]))
-                        #print(data[1])
-                    #print(data)
+                    if data is not None:
+                        self.data_change.emit()
         finally:
             self.ust.stop()
             

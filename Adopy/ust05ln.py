@@ -1,7 +1,12 @@
+#!/usr/bin/python3
 from serial import Serial
 import time
 from collections import namedtuple
 import numpy as np
+import sys
+import re
+
+NB_POINTS = 541
 
 class UST:
     
@@ -13,14 +18,14 @@ class UST:
     ID2 = Command('#CLC2DD', True, '')
 
     PLOP = Command('#GR0EEE1', True, '')
-    
-    MESURE_LENGHT = 4359
 
     def __init__(self, port="/dev/ttyACM0", baudrate=115200):
         self.ser = Serial(port, baudrate)
         self.stop_ranging()
-        self.distances = np.zeros(541,dtype="uint16")
-        self.puissances = np.zeros(541,dtype="uint16")
+        self.timestamp = 0
+        self.distances = np.zeros(NB_POINTS,dtype="uint16")
+        self.puissances = np.zeros(NB_POINTS,dtype="uint16")
+        self.regex = re.compile(b'^#GT00:([0-9A-F]+):[0-9A-F]+:([0-9A-F]{4328})[0-9A-F]{4}$')
 
     def send_command(self, command, timeout=2):
         self.ser.write(command.command.encode()+b'\n')    # writes command to LIDAR
@@ -64,38 +69,26 @@ class UST:
         valur range : 0 - ??? (65635 max)
         eg: (102.123456, [(552, 1244), (646, 1216), (676, 1270), ...])
         """
-        raw_bytes=self.ser.read(UST.MESURE_LENGHT)
-        data = raw_bytes.split(b':')
-        timestamp = int(data[1], 16)/10**6
-        measurement_bytes = data[3]
-        #for i in range(0,len(measurement_bytes),4) :
-        #    int16 = np.array([int(measurement_bytes[i:i+4],16)],dtype=uint16) 
-        #    self.data[i/4] = int16[0]
-        #measurements = [(int(measurement_bytes[i:i+4],16), int(measurement_bytes[i+4:i+8],16))  for i in range(0, len(measurement_bytes)-8, 8)]
-        self.distances = np.fromiter((int(measurement_bytes[i:i+4],16)  for i in range(0, len(measurement_bytes)-8, 8)),dtype = np.uint16)
-        self.puissances = np.fromiter((int(measurement_bytes[i+4:i+8],16)  for i in range(0, len(measurement_bytes)-8, 8)),dtype = np.uint16)
+        raw_bytes=self.ser.readline().strip()
+        m = self.regex.match(raw_bytes) 
+        if m is not None:
+            tb = m.groups()[0]
+            mesb = m.groups()[1]
+            self.timestamp = int(tb, 16)/10**6
+            self.distances = np.fromiter((int(mesb[i:i+4],16)  for i in range(0, NB_POINTS*8, 8)),dtype = np.uint16)
+            self.puissances = np.fromiter((int(mesb[i:i+4],16)  for i in range(4, NB_POINTS*8, 8)),dtype = np.uint16)
+            return (self.timestamp, self.distances, self.puissances)
 
-        return (timestamp, self.distances,self.puissances)
-    
-    def get_data(self, nb_bytes):
-        data = self.ser.read(nb_bytes)
-        data = data.split(b':')
-        data = data[3]
-        aa = [(int(data[i:i+4],16), int(data[i+4:i+8],16))  for i in range(0, len(data)-8, 8)]
-        print('data received')
-    
 
 if __name__ == "__main__":
-    ust = UST(port = "COM3")
+    ust = UST(port = sys.argv[1])
     try:
         ret = ust.send_command(ust.ID)
         print(ret)
         ust.start_ranging()
         while True:
-            data = ust.get_measures()
-            if len(data[1]) == 541 :
-                #print("ok at {:.06f} s".format(data[0]))
-                print(data[1])
-            #print(data)
+            if ust.get_measures() is not None:
+                print(ust.distances)
     finally:
         ust.stop()
+
